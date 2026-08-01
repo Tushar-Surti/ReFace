@@ -1,41 +1,12 @@
-# ─── Dependencies ────────────────────────────────────────────
 node_modules/
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-env/
-
-# ─── Build output ────────────────────────────────────────────
 dist/
-build/
-out/
-public/bundle.js
-public/bundle.js.LICENSE.txt
-
-# ─── Secrets & local config ──────────────────────────────────
-.env
-.env.*
-!.env.example
-*.local
-
-# ─── Backend runtime artifacts ───────────────────────────────
-backend/renders/
 backend/exports/
-backend/temp/
-backend/collab.db
-*.db
-*.sqlite
-*.log
+backend/cases/
+*.pyc
+__pycache__/
+.env
+.claude/
+venv/
+DEMO_SCRIPT.md
+upload.txt
 
-# ─── Editor backups & scratch ────────────────────────────────
-*.backup
-*.bak
-*.orig
-*.tmp
-Prev_script/
-
-# ─── OS cruft ────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-desktop.ini

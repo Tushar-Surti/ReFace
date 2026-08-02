@@ -1136,3 +1136,233 @@
 #rf-screen-editor .feature-sub-group:has(> .sub-group-body.collapsed) .sub-group-header {
   border-bottom: 0;
 }
+
+/* ─── Reference Photo Overlay ─────────────────────────────────────────────
+   Sits above the render (canvas 0, vignette 1) and below every floating
+   control (toolbar/actions/info strip are 50+), so it covers the model and
+   nothing else.
+
+   pointer-events is none and stays none — the photo must never intercept a
+   drag meant for OrbitControls, point edit or mark placement. Alignment is
+   done with sliders instead, which keeps the viewport fully usable while a
+   reference is up. */
+#rf-ref-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+  display: none;
+}
+
+#rf-ref-image {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: center center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Divider shown only in wipe mode, marking where photo gives way to model. */
+#rf-ref-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: linear-gradient(to bottom,
+    rgba(255,138,58,0) 0%,
+    rgba(255,138,58,0.9) 12%,
+    rgba(255,138,58,0.9) 88%,
+    rgba(255,138,58,0) 100%);
+  box-shadow: 0 0 8px rgba(255,138,58,0.6);
+  display: none;
+  pointer-events: none;
+}
+
+/* Lives in the bottom-right action row rather than the top toolbar: that
+   toolbar already overflows its viewport by ~98px at this window size, so
+   adding to it would push the Front preset further under the sidebar.
+   Lights up while a reference is on screen. */
+#rf-vp-reference.active {
+  background: rgba(255,138,58,0.18);
+  border-color: rgba(255,138,58,0.55);
+  color: #ffb37a;
+}
+
+/* Thumbnail of the loaded photo in the side panel. */
+.rf-ref-thumb-wrap {
+  position: relative;
+  margin-top: 8px;
+  border: 1px solid var(--rf-border-faint, rgba(255,255,255,0.08));
+  border-radius: 6px;
+  overflow: hidden;
+  background: rgba(0,0,0,0.25);
+}
+
+.rf-ref-thumb-wrap img {
+  display: block;
+  width: 100%;
+  max-height: 150px;
+  object-fit: contain;
+}
+
+.rf-ref-thumb-name {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-muted, #8b8b96);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rf-ref-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted, #8b8b96);
+  border: 1px dashed var(--rf-border-faint, rgba(255,255,255,0.12));
+  border-radius: 6px;
+  margin-top: 8px;
+}
+
+/* ─── Witness Variant Picker ──────────────────────────────────────────────
+   Takes over the screen while it runs: the witness is choosing between faces,
+   and anything else on screen is a distraction from that one judgement. */
+.rf-variant-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(6,6,10,0.86);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.rf-variant-panel {
+  width: min(1100px, 96vw);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--rf-bg-panel, #14141c);
+  border: 1px solid var(--rf-border-faint, rgba(255,255,255,0.09));
+  border-radius: 14px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+.rf-variant-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--rf-border-faint, rgba(255,255,255,0.07));
+}
+
+.rf-variant-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #f0f0f4);
+}
+
+.rf-variant-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted, #8b8b96);
+  max-width: 70ch;
+}
+
+.rf-variant-close {
+  background: transparent;
+  border: 1px solid var(--rf-border-faint, rgba(255,255,255,0.1));
+  color: var(--text-muted, #8b8b96);
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.rf-variant-close:hover { color: #fff; border-color: rgba(255,255,255,0.28); }
+
+.rf-variant-status {
+  padding: 10px 22px;
+  font-size: 12px;
+  color: var(--text-muted, #8b8b96);
+  border-bottom: 1px solid var(--rf-border-faint, rgba(255,255,255,0.05));
+}
+
+/* Fixed 3 columns rather than auto-fit: six candidates want to read as one
+   comparable set, and auto-fit lands on 5+1 at common widths, which makes the
+   orphan look like an afterthought instead of an equal option. */
+.rf-variant-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 18px 22px;
+  overflow-y: auto;
+}
+
+@media (max-width: 720px) {
+  .rf-variant-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.rf-variant-card {
+  position: relative;
+  border: 2px solid transparent;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  background: rgba(0,0,0,0.35);
+  transition: border-color .12s ease, transform .12s ease;
+}
+.rf-variant-card:hover { border-color: rgba(255,138,58,0.5); transform: translateY(-2px); }
+.rf-variant-card.selected { border-color: #ff8a3a; box-shadow: 0 0 0 3px rgba(255,138,58,0.18); }
+
+.rf-variant-card img { display: block; width: 100%; aspect-ratio: 13 / 16; object-fit: cover; }
+
+.rf-variant-card .rf-variant-label {
+  padding: 7px 9px;
+  font-size: 11px;
+  color: var(--text-secondary, #c8c8d2);
+  border-top: 1px solid var(--rf-border-faint, rgba(255,255,255,0.06));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rf-variant-card .rf-variant-badge {
+  position: absolute;
+  top: 7px; left: 7px;
+  background: rgba(255,138,58,0.9);
+  color: #10101a;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.rf-variant-foot {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--rf-border-faint, rgba(255,255,255,0.07));
+}
+.rf-variant-hint { flex: 1; font-size: 11px; color: var(--text-muted, #8b8b96); }
+
+.rf-variant-launch {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--rf-border-faint, rgba(255,255,255,0.07));
+}

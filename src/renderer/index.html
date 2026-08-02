@@ -3892,6 +3892,17 @@
               <button class="ai-quick-btn" data-prompt="Reset everything to default neutral face">Reset face</button>
             </div>
 
+            <!-- Witness-led alternative to slider tuning -->
+            <div class="rf-variant-launch">
+              <button class="btn btn-primary" id="btnStartVariantPicker" style="width:100%;">
+                <i class="fas fa-users-viewfinder"></i> Build with a witness
+              </button>
+              <div class="sub-group-label" style="margin-top:6px;">
+                Shows several faces from your description and narrows down by which looks closest.
+                Costs one AI request — the rounds after are generated offline.
+              </div>
+            </div>
+
             <!-- Camera Capture Modal -->
             <div class="ai-camera-modal" id="aiCameraModal" style="display:none;">
               <div class="ai-camera-modal-content">
@@ -3944,17 +3955,17 @@
                   <div class="ai-setting-item">
                     <span class="ai-setting-title">Mark handling mode:</span>
                     <div class="ai-radio-group">
-                      <label class="ai-radio-label">
+                      <label class="ai-radio-label" title="Marks you placed by hand are kept and the AI's are discarded. If the face has no marks yet, the AI's are used.">
                         <input type="radio" name="aiMarkMode" value="preserve" checked>
-                        <span>Preserve existing</span>
+                        <span>Keep mine, ignore AI</span>
                       </label>
-                      <label class="ai-radio-label">
+                      <label class="ai-radio-label" title="Clears every existing mark, then applies the AI's.">
                         <input type="radio" name="aiMarkMode" value="replace">
                         <span>Replace with AI</span>
                       </label>
-                      <label class="ai-radio-label">
+                      <label class="ai-radio-label" title="Keeps your marks and adds the AI's on top.">
                         <input type="radio" name="aiMarkMode" value="merge">
-                        <span>Merge marks</span>
+                        <span>Keep mine, add AI's</span>
                       </label>
                     </div>
                   </div>
@@ -4028,6 +4039,133 @@
       <!-- Case Management Panel -->
       <div class="panel-content" id="panel-case">
         <div class="panel-scroll">
+
+          <!-- Reference Photo -->
+          <div class="control-group">
+            <div class="control-group-header">
+              <i class="fas fa-image"></i>
+              <span>Reference Photo</span>
+              <button class="btn-reset-group" id="btnResetReference" title="Reset alignment">
+                <i class="fas fa-undo-alt"></i>
+              </button>
+            </div>
+            <div class="control-group-body">
+
+              <!-- Load Sub-group -->
+              <div class="feature-sub-group">
+                <div class="sub-group-header">
+                  <i class="fas fa-folder-open"></i>
+                  <span>Photo</span>
+                </div>
+                <div class="sub-group-body">
+                  <input type="file" id="referenceFileInput" accept="image/*" style="display:none;" />
+                  <div style="display:flex; gap:6px;">
+                    <button class="btn btn-secondary" id="btnLoadReference" style="flex:1;">
+                      <i class="fas fa-upload"></i> Load Photo
+                    </button>
+                    <button class="btn btn-secondary" id="btnClearReference" title="Remove the photo" disabled>
+                      <i class="fas fa-times"></i>
+                    </button>
+                  </div>
+
+                  <div class="rf-ref-empty" id="referenceEmpty">
+                    No photo loaded. Compare a mugshot or CCTV still against the reconstruction.
+                  </div>
+                  <div class="rf-ref-thumb-wrap" id="referenceThumbWrap" style="display:none;">
+                    <img id="referenceThumb" alt="Reference preview" />
+                    <div class="rf-ref-thumb-name" id="referenceName"></div>
+                  </div>
+
+                  <div class="input-control" style="margin-top:10px;">
+                    <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                      <input type="checkbox" id="referenceVisibleToggle" />
+                      <span>Show over viewport</span>
+                    </label>
+                  </div>
+                  <div class="sub-group-label">Never blocks the viewport — you can still orbit and edit through it</div>
+                </div>
+              </div>
+
+              <!-- Compare Sub-group -->
+              <div class="feature-sub-group">
+                <div class="sub-group-header">
+                  <i class="fas fa-adjust"></i>
+                  <span>Compare</span>
+                </div>
+                <div class="sub-group-body">
+                  <div class="hair-style-grid" id="referenceModeGrid">
+                    <div class="hair-style-card active" data-reference-mode="blend">
+                      <div class="hair-icon"><i class="fas fa-adjust"></i></div>
+                      <span>Blend</span>
+                    </div>
+                    <div class="hair-style-card" data-reference-mode="wipe">
+                      <div class="hair-icon"><i class="fas fa-columns"></i></div>
+                      <span>Wipe</span>
+                    </div>
+                  </div>
+                  <div class="slider-control" data-param="referenceOpacity">
+                    <label>Opacity</label>
+                    <div class="slider-row">
+                      <input type="range" min="0" max="100" value="50" class="reference-slider" id="referenceOpacitySlider" />
+                      <span class="slider-value">50</span>
+                    </div>
+                  </div>
+                  <div class="slider-control" data-param="referenceWipe" id="referenceWipeControl" style="display:none;">
+                    <label>Wipe Position</label>
+                    <div class="slider-row">
+                      <input type="range" min="0" max="100" value="50" class="reference-slider" id="referenceWipeSlider" />
+                      <span class="slider-value">50</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Align Sub-group -->
+              <div class="feature-sub-group">
+                <div class="sub-group-header">
+                  <i class="fas fa-crosshairs"></i>
+                  <span>Align</span>
+                </div>
+                <div class="sub-group-body">
+                  <div class="slider-control" data-param="referenceScale">
+                    <label>Size</label>
+                    <div class="slider-row">
+                      <input type="range" min="25" max="300" value="100" class="reference-slider" id="referenceScaleSlider" />
+                      <span class="slider-value">100</span>
+                    </div>
+                  </div>
+                  <div class="slider-control" data-param="referencePosX">
+                    <label>Horizontal</label>
+                    <div class="slider-row">
+                      <input type="range" min="-100" max="100" value="0" class="reference-slider" id="referencePosXSlider" />
+                      <span class="slider-value">0</span>
+                    </div>
+                  </div>
+                  <div class="slider-control" data-param="referencePosY">
+                    <label>Vertical</label>
+                    <div class="slider-row">
+                      <input type="range" min="-100" max="100" value="0" class="reference-slider" id="referencePosYSlider" />
+                      <span class="slider-value">0</span>
+                    </div>
+                  </div>
+                  <div class="slider-control" data-param="referenceRotate">
+                    <label>Rotate</label>
+                    <div class="slider-row">
+                      <input type="range" min="-180" max="180" value="0" class="reference-slider" id="referenceRotateSlider" />
+                      <span class="slider-value">0</span>
+                    </div>
+                  </div>
+                  <div class="input-control" style="margin-top:6px;">
+                    <label class="checkbox-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                      <input type="checkbox" id="referenceFlipToggle" />
+                      <span>Mirror horizontally</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
 
           <div class="control-group">
             <div class="control-group-header">
@@ -4106,6 +4244,35 @@
       </div>
     </div>
 
+    <!-- Witness Variant Picker -->
+    <div id="rf-variant-modal" class="rf-variant-modal" style="display:none;">
+      <div class="rf-variant-panel">
+        <div class="rf-variant-head">
+          <div>
+            <h2 id="rf-variant-title">Which is closest?</h2>
+            <p id="rf-variant-sub">Pick the face nearest the person you remember. Don't worry about details — we'll refine from there.</p>
+          </div>
+          <button class="rf-variant-close" id="rf-variant-cancel" title="Cancel and restore the previous face">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+
+        <div class="rf-variant-status" id="rf-variant-status"></div>
+
+        <div class="rf-variant-grid" id="rf-variant-grid"></div>
+
+        <div class="rf-variant-foot">
+          <button class="btn btn-secondary" id="rf-variant-none">
+            <i class="fas fa-rotate"></i> None of these look right
+          </button>
+          <span class="rf-variant-hint" id="rf-variant-hint"></span>
+          <button class="btn btn-primary" id="rf-variant-accept" disabled>
+            <i class="fas fa-check"></i> Use this face
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- 3D Viewport -->
     <div id="viewport">
       <canvas id="viewport-canvas"></canvas>
@@ -4147,6 +4314,7 @@
       <!-- Bottom-right action buttons -->
       <div id="rf-viewport-actions">
         <div class="rf-vp-action-row">
+          <button class="rf-vp-action-btn" id="rf-vp-reference" title="Show / hide the reference photo (load one in the Case tab)"><i class="fas fa-image"></i> Ref</button>
           <button class="rf-vp-action-btn" id="rf-vp-undo" title="Undo (Ctrl+Z)"><i class="fas fa-undo"></i> Undo</button>
           <button class="rf-vp-action-btn" id="rf-vp-redo" title="Redo (Ctrl+Y)"><i class="fas fa-redo"></i> Redo</button>
           <button class="rf-vp-action-btn rf-vp-screenshot" id="rf-vp-screenshot-btn" title="Take Screenshot"><i class="fas fa-camera"></i> Screenshot</button>
@@ -4377,6 +4545,8 @@
   <script src="js/FaceMaskSystem.js"></script>
   <script src="js/EarringSystem.js"></script>
   <script src="js/BandanaSystem.js"></script>
+  <script src="js/ReferenceOverlay.js"></script>
+  <script src="js/VariantPicker.js"></script>
   <script src="js/SceneManager.js"></script>
   <script src="js/FacePointEditor.js"></script>
   <script src="js/SkinMarkSystem.js"></script>

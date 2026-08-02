@@ -31,6 +31,8 @@ class UIController {
     this.bindFaceMaskControls();
     this.bindEarringControls();
     this.bindBandanaControls();
+    this.bindReferenceControls();
+    this.bindVariantPickerControls();
     this.bindSkinMarkControls();
     this.bindDecalControls();
     this.bindWrinklePainterControls();
@@ -2469,6 +2471,314 @@ class UIController {
     document.querySelectorAll('#bandanaTintPresets .hair-style-card').forEach(c => {
       c.classList.toggle('active', c.dataset.bandanaTint === state.tint);
     });
+  }
+
+  // ─── Reference Photo Overlay ─────────────────────────────────────────────
+
+  bindReferenceControls() {
+    const ref = this.referenceOverlay;
+    if (!ref) return;
+
+    const fileInput = document.getElementById('referenceFileInput');
+    const visibleToggle = document.getElementById('referenceVisibleToggle');
+    const flipToggle = document.getElementById('referenceFlipToggle');
+    const toolbarBtn = document.getElementById('rf-vp-reference');
+
+    // Load a photo. Read as a data URL so it works the same whether the app is
+    // packaged or running from source, with no temp files to clean up.
+    document.getElementById('btnLoadReference')?.addEventListener('click', () => fileInput?.click());
+    fileInput?.addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        ref.setImage(reader.result, file.name);
+        this._syncReferenceUI();
+        this.addHistory(`Reference photo loaded: ${file.name}`);
+      };
+      reader.onerror = () => this.showNotification('Could not read that image', 'error');
+      reader.readAsDataURL(file);
+      // Clear so picking the same file again still fires a change event.
+      e.target.value = '';
+    });
+
+    document.getElementById('btnClearReference')?.addEventListener('click', () => {
+      ref.clear();
+      this._syncReferenceUI();
+      this.addHistory('Reference photo removed');
+    });
+
+    visibleToggle?.addEventListener('change', (e) => {
+      ref.setEnabled(!!e.target.checked);
+      this._syncReferenceUI();
+    });
+
+    // Quick show/hide from the viewport, since that is the action you repeat
+    // constantly while comparing.
+    toolbarBtn?.addEventListener('click', () => {
+      if (!ref.hasImage) {
+        this.showNotification('Load a reference photo in the Case tab first', 'info');
+        return;
+      }
+      ref.toggle();
+      this._syncReferenceUI();
+    });
+
+    document.querySelectorAll('#referenceModeGrid .hair-style-card').forEach(card => {
+      card.addEventListener('click', () => {
+        ref.setMode(card.dataset.referenceMode);
+        this._syncReferenceUI();
+      });
+    });
+
+    flipToggle?.addEventListener('change', (e) => {
+      ref.setFlipped(!!e.target.checked);
+    });
+
+    // Alignment sliders. These are plain live updates — the overlay is a
+    // viewing aid, so it deliberately stays out of undo/redo and the case
+    // history rather than filling them with alignment noise.
+    const sliders = [
+      ['referenceOpacitySlider', 'opacity'],
+      ['referenceWipeSlider', 'wipe'],
+      ['referenceScaleSlider', 'scale'],
+      ['referencePosXSlider', 'posX'],
+      ['referencePosYSlider', 'posY'],
+      ['referenceRotateSlider', 'rotate'],
+    ];
+    for (const [id, key] of sliders) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const valueDisplay = el.closest('.slider-control')?.querySelector('.slider-value');
+      el.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        if (valueDisplay) valueDisplay.textContent = String(value);
+        ref.setParam(key, value);
+        this.updateSliderFill(e.target);
+      });
+    }
+
+    document.getElementById('btnResetReference')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      ref.resetTransform();
+      this._syncReferenceUI();
+      this.addHistory('Reference alignment reset');
+    });
+
+    this._syncReferenceUI();
+  }
+
+  /** Push overlay state into the panel and the viewport toggle. */
+  _syncReferenceUI() {
+    const ref = this.referenceOverlay;
+    if (!ref) return;
+    const state = ref.getState();
+
+    const toggle = document.getElementById('referenceVisibleToggle');
+    if (toggle) {
+      toggle.checked = state.enabled;
+      toggle.disabled = !state.hasImage;
+    }
+    const clearBtn = document.getElementById('btnClearReference');
+    if (clearBtn) clearBtn.disabled = !state.hasImage;
+
+    const flip = document.getElementById('referenceFlipToggle');
+    if (flip) flip.checked = state.flipped;
+
+    // Thumbnail / empty placeholder
+    const thumbWrap = document.getElementById('referenceThumbWrap');
+    const empty = document.getElementById('referenceEmpty');
+    const thumb = document.getElementById('referenceThumb');
+    const nameEl = document.getElementById('referenceName');
+    if (thumbWrap && empty) {
+      thumbWrap.style.display = state.hasImage ? 'block' : 'none';
+      empty.style.display = state.hasImage ? 'none' : 'block';
+    }
+    if (thumb && state.hasImage && ref.img?.src) thumb.src = ref.img.src;
+    if (nameEl) nameEl.textContent = state.imageName || '';
+
+    // Wipe position only matters in wipe mode.
+    const wipeControl = document.getElementById('referenceWipeControl');
+    if (wipeControl) wipeControl.style.display = state.mode === 'wipe' ? '' : 'none';
+
+    document.querySelectorAll('#referenceModeGrid .hair-style-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.referenceMode === state.mode);
+    });
+
+    const setSlider = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el || value === undefined) return;
+      el.value = value;
+      const vd = el.closest('.slider-control')?.querySelector('.slider-value');
+      if (vd) vd.textContent = String(value);
+      this.updateSliderFill(el);
+    };
+    setSlider('referenceOpacitySlider', state.opacity);
+    setSlider('referenceWipeSlider', state.wipe);
+    setSlider('referenceScaleSlider', state.scale);
+    setSlider('referencePosXSlider', state.posX);
+    setSlider('referencePosYSlider', state.posY);
+    setSlider('referenceRotateSlider', state.rotate);
+
+    const toolbarBtn = document.getElementById('rf-vp-reference');
+    if (toolbarBtn) toolbarBtn.classList.toggle('active', state.enabled);
+  }
+
+  // ─── Witness Variant Picker ──────────────────────────────────────────────
+
+  bindVariantPickerControls() {
+    const picker = this.variantPicker;
+    if (!picker) return;
+
+    const modal = document.getElementById('rf-variant-modal');
+    const grid = document.getElementById('rf-variant-grid');
+    const status = document.getElementById('rf-variant-status');
+    const hint = document.getElementById('rf-variant-hint');
+    const acceptBtn = document.getElementById('rf-variant-accept');
+    const noneBtn = document.getElementById('rf-variant-none');
+
+    picker.onUpdate = () => this._renderVariantGrid();
+
+    document.getElementById('btnStartVariantPicker')?.addEventListener('click', async () => {
+      const description = (document.getElementById('aiChatInput')?.value || '').trim();
+      const refs = this.aiController?.referenceImages || [];
+      if (!description && refs.length === 0) {
+        this.showNotification('Describe the face first, or attach a reference photo', 'info');
+        return;
+      }
+
+      modal.style.display = 'flex';
+      grid.innerHTML = '';
+      if (status) status.textContent = 'Generating candidates…';
+      if (hint) hint.textContent = '';
+      if (acceptBtn) acceptBtn.disabled = true;
+
+      // The face is about to be overwritten repeatedly for thumbnails, so put
+      // a restore point in before anything moves.
+      this.caseManager.pushState('Witness variant session');
+
+      try {
+        await picker.start(description, refs);
+        this.addHistory('Variant picker: opened');
+      } catch (err) {
+        if (status) status.textContent = '';
+        modal.style.display = 'none';
+        picker.cancel();
+        this.showNotification(`Could not generate candidates: ${err.message}`, 'error');
+      }
+    });
+
+    noneBtn?.addEventListener('click', async () => {
+      if (status) status.textContent = 'Generating a different set…';
+      grid.innerHTML = '';
+      if (acceptBtn) acceptBtn.disabled = true;
+      try {
+        await picker.rejectAll();
+        this.addHistory('Variant picker: rejected a set');
+      } catch (err) {
+        this.showNotification(`Could not generate candidates: ${err.message}`, 'error');
+        this._renderVariantGrid();
+      }
+    });
+
+    acceptBtn?.addEventListener('click', () => {
+      const chosen = picker.apply(picker.selectedIndex);
+      modal.style.display = 'none';
+      if (chosen) {
+        this._syncSliders?.();
+        this.updatePropertyPanel?.();
+        this.caseManager.updateMorphTargets(this.morpher.morphValues);
+        this.addHistory(`Variant picker: accepted "${chosen.label}"`);
+        this.showNotification('Face applied — refine it with the sliders', 'success');
+      }
+    });
+
+    document.getElementById('rf-variant-cancel')?.addEventListener('click', () => {
+      picker.cancel();
+      modal.style.display = 'none';
+      this._syncSliders?.();
+      this.addHistory('Variant picker: cancelled');
+    });
+  }
+
+  /** Paint the candidate grid and the round/convergence messaging. */
+  _renderVariantGrid() {
+    const picker = this.variantPicker;
+    const grid = document.getElementById('rf-variant-grid');
+    const status = document.getElementById('rf-variant-status');
+    const hint = document.getElementById('rf-variant-hint');
+    const acceptBtn = document.getElementById('rf-variant-accept');
+    const title = document.getElementById('rf-variant-title');
+    if (!picker || !grid) return;
+
+    const state = picker.getState();
+    grid.innerHTML = '';
+
+    state.variants.forEach((v, i) => {
+      const card = document.createElement('div');
+      card.className = 'rf-variant-card' + (picker.selectedIndex === i ? ' selected' : '');
+
+      if (v.thumb) {
+        const img = document.createElement('img');
+        img.src = v.thumb;
+        img.alt = v.label;
+        card.appendChild(img);
+      }
+      // Round 1+ keeps the previous pick in slot 0 so a good face can never be
+      // lost by choosing it; call that out rather than leaving it a surprise.
+      if (state.round > 0 && i === 0) {
+        const badge = document.createElement('div');
+        badge.className = 'rf-variant-badge';
+        badge.textContent = 'Your pick';
+        card.appendChild(badge);
+      }
+      const label = document.createElement('div');
+      label.className = 'rf-variant-label';
+      label.textContent = v.label;
+      card.appendChild(label);
+
+      card.addEventListener('click', () => {
+        picker.selectedIndex = i;
+        this._renderVariantGrid();
+        if (acceptBtn) acceptBtn.disabled = false;
+      });
+      card.addEventListener('dblclick', () => this._advanceVariantRound(i));
+
+      grid.appendChild(card);
+    });
+
+    if (title) {
+      title.textContent = state.round === 0 ? 'Which is closest?' : 'Closer — which of these?';
+    }
+    if (status) {
+      status.textContent = state.round === 0
+        ? 'Round 1 · pick the nearest face, or say none of these look right'
+        : `Round ${state.round + 1} · variations around your last pick — no AI requests used`;
+    }
+    if (hint) {
+      hint.textContent = picker.selectedIndex < 0
+        ? 'Click a face to select it. Double-click to refine around it.'
+        : (state.canNarrow
+          ? 'Double-click it to narrow further, or use it as-is.'
+          : 'As close as this will get — use it and fine-tune with the sliders.');
+    }
+    if (acceptBtn) acceptBtn.disabled = picker.selectedIndex < 0;
+  }
+
+  _advanceVariantRound(index) {
+    const picker = this.variantPicker;
+    const status = document.getElementById('rf-variant-status');
+    if (status) status.textContent = 'Building variations…';
+    const narrowed = picker.pick(index);
+    if (!narrowed) {
+      // Converged — pick() has already applied the face.
+      document.getElementById('rf-variant-modal').style.display = 'none';
+      this._syncSliders?.();
+      this.updatePropertyPanel?.();
+      this.caseManager.updateMorphTargets(this.morpher.morphValues);
+      this.addHistory('Variant picker: converged');
+      this.showNotification('Face applied — refine it with the sliders', 'success');
+    }
   }
 
   // ─── Skin Mark Controls ──────────────────────────────────────────────────
